@@ -1,0 +1,271 @@
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
+import './App.css';
+
+const API_BASE = process.env.REACT_APP_API_BASE_URL || '';
+
+const languages = {
+  en: {
+    dashboard: "Dashboard",
+    uploadFile: "Upload File",
+    uploadedFiles: "Uploaded Files",
+    adminPanel: "Admin Panel",
+    notes: "Notes",
+    partsUsed: "Parts Used",
+    consumables: "Consumables",
+    addNote: "Add Note",
+    notePlaceholder: "Write a note...",
+    addPart: "Add Part",
+    partPlaceholder: "Enter part used...",
+    addConsumable: "Add Consumable",
+    consumablePlaceholder: "Enter consumable...",
+    createFile: "Create File",
+    delete: "Delete",
+    fileName: "File Name",
+    fileDescription: "File Description",
+    login: "Login",
+    userId: "User ID",
+    password: "Password",
+    logout: "Logout",
+    searchPlaceholder: "Search files...",
+    view: "View"
+  },
+  es: {},
+  uk: {}
+};
+
+function Login({ setUser }) {
+  const [userId, setUserId] = useState('');
+  const [password, setPassword] = useState('');
+  const navigate = useNavigate();
+
+  const handleLogin = () => {
+    if (password === 'sharedpass') {
+      setUser(userId);
+      navigate('/');
+    } else {
+      alert('Incorrect password');
+    }
+  };
+
+  return (
+    <div>
+      <h2>Login</h2>
+      <input placeholder="User ID" value={userId} onChange={(e) => setUserId(e.target.value)} />
+      <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <button onClick={handleLogin}>Login</button>
+    </div>
+  );
+}
+
+function Dashboard({ lang, user, setUser }) {
+  return (
+    <div className="dashboard">
+      <h1>{languages[lang].dashboard}</h1>
+      {user && <p>Logged in as: {user} <button onClick={() => setUser(null)}>{languages[lang].logout}</button></p>}
+      <nav>
+        <Link to="/upload">{languages[lang].uploadFile}</Link>
+        <Link to="/files">{languages[lang].uploadedFiles}</Link>
+        <Link to="/admin">{languages[lang].adminPanel}</Link>
+      </nav>
+    </div>
+  );
+}
+
+function UploadFile() { return <div>Upload File Page</div>; }
+
+function FileList() {
+  const [files, setFiles] = useState([]);
+  const [search, setSearch] = useState('');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/file`)
+      .then(res => res.json())
+      .then(data => setFiles(data));
+  }, []);
+
+  const filteredFiles = files.filter(file =>
+    file.name.toLowerCase().includes(search.toLowerCase()) ||
+    file.description.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div>
+      <h2>Uploaded Files</h2>
+      <input
+        type="text"
+        placeholder={languages.en.searchPlaceholder}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      <ul>
+        {filteredFiles.map(file => (
+          <li key={file._id}>
+            <strong>{file.name}</strong> - {file.description}
+            <button onClick={() => navigate(`/file/${file._id}`)}>{languages.en.view}</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function FileDetails({ lang }) {
+  const [activeTab, setActiveTab] = useState('notes');
+  const [note, setNote] = useState('');
+  const [part, setPart] = useState('');
+  const [consumable, setConsumable] = useState('');
+  const [notes, setNotes] = useState([]);
+  const [parts, setParts] = useState([]);
+  const [consumables, setConsumables] = useState([]);
+  const { id } = useParams();
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/file/${id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data?.notes) setNotes(data.notes.reverse());
+        if (data?.parts) setParts(data.parts);
+        if (data?.consumables) setConsumables(data.consumables);
+      });
+  }, [id]);
+
+  const handleAddNote = async () => {
+    await fetch(`${API_BASE}/api/file/${id}/note`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note })
+    });
+    setNotes([note, ...notes]);
+    setNote('');
+  };
+
+  const handleAddPart = async () => {
+    await fetch(`${API_BASE}/api/file/${id}/part`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ part })
+    });
+    setParts([...parts, part]);
+    setPart('');
+  };
+
+  const handleAddConsumable = async () => {
+    await fetch(`${API_BASE}/api/file/${id}/consumable`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ consumable })
+    });
+    setConsumables([...consumables, consumable]);
+    setConsumable('');
+  };
+
+  const renderTab = () => {
+    switch (activeTab) {
+      case 'notes':
+        return (
+          <div>
+            <textarea placeholder={languages[lang].notePlaceholder} value={note} onChange={(e) => setNote(e.target.value)}></textarea>
+            <button onClick={handleAddNote}>{languages[lang].addNote}</button>
+            <ul>{notes.map((n, i) => <li key={i}>{n}</li>)}</ul>
+          </div>
+        );
+      case 'parts':
+        return (
+          <div>
+            <input placeholder={languages[lang].partPlaceholder} value={part} onChange={(e) => setPart(e.target.value)} />
+            <button onClick={handleAddPart}>{languages[lang].addPart}</button>
+            <ul>{parts.map((p, i) => <li key={i}>{p}</li>)}</ul>
+          </div>
+        );
+      case 'consumables':
+        return (
+          <div>
+            <input placeholder={languages[lang].consumablePlaceholder} value={consumable} onChange={(e) => setConsumable(e.target.value)} />
+            <button onClick={handleAddConsumable}>{languages[lang].addConsumable}</button>
+            <ul>{consumables.map((c, i) => <li key={i}>{c}</li>)}</ul>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div>
+      <h2>{languages[lang].uploadedFiles} - ID: {id}</h2>
+      <nav>
+        <button onClick={() => setActiveTab('notes')}>{languages[lang].notes}</button>
+        <button onClick={() => setActiveTab('parts')}>{languages[lang].partsUsed}</button>
+        <button onClick={() => setActiveTab('consumables')}>{languages[lang].consumables}</button>
+      </nav>
+      {renderTab()}
+    </div>
+  );
+}
+
+function AdminPanel({ lang }) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [files, setFiles] = useState([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/file`)
+      .then(res => res.json())
+      .then(data => setFiles(data));
+  }, []);
+
+  const createFile = async () => {
+    const res = await fetch(`${API_BASE}/api/file`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, description })
+    });
+    const newFile = await res.json();
+    setFiles([...files, newFile]);
+    setName('');
+    setDescription('');
+  };
+
+  const deleteFile = async (id) => {
+    await fetch(`${API_BASE}/api/file/${id}`, { method: 'DELETE' });
+    setFiles(files.filter(file => file._id !== id));
+  };
+
+  return (
+    <div>
+      <h2>{languages[lang].adminPanel}</h2>
+      <input placeholder={languages[lang].fileName} value={name} onChange={(e) => setName(e.target.value)} />
+      <input placeholder={languages[lang].fileDescription} value={description} onChange={(e) => setDescription(e.target.value)} />
+      <button onClick={createFile}>{languages[lang].createFile}</button>
+      <ul>
+        {files.map(file => (
+          <li key={file._id}>{file.name} - {file.description} <button onClick={() => deleteFile(file._id)}>{languages[lang].delete}</button></li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function App() {
+  const [lang, setLang] = useState('en');
+  const [user, setUser] = useState(null);
+
+  return (
+    <Router>
+      <div className="App">
+        <header>
+          <select onChange={(e) => setLang(e.target.value)} value={lang}>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="uk">Українська</option>
+          </select>
+        </header>
+        <Routes>
+          <Route path="/" element={<Dashboard lang={lang} user={user} setUser={setUser} />} />
+          <Route path="/login" element={<Login setUser={setUser} />} />
+          <Route path="/upload" element={<UploadFile />} />
+          <Route path="/files" element={<FileList />} />
+          <Route path="/file/:id" element={<FileDetails lang={lang} />} />
+          <Route path="/admin" element={<AdminPanel lang={lang} />} />
+        </Routes>
+      </div>
+    </Router>
+  );
+}
+
+export default App;
+export { languages };
